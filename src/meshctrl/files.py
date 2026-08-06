@@ -235,28 +235,6 @@ class Files(tunnel.Tunnel):
         Returns:
             dict: {result: bool whether upload succeeded, size: number of bytes uploaded}
         '''
-        # Try HTTP upload first (faster), fallback to WebSocket
-        try:
-            params = urllib.parse.urlencode({
-                "c": self._authcookie["cookie"],
-                "m": self._node.mesh.meshid.split("/")[-1],
-                "n": self._node.nodeid.split("/")[-1],
-                "f": target
-            })
-            url = self._session.url.replace('/control.ashx', f"/devicefile.ashx?{params}")
-            url = url.replace("wss://", "https://").replace("ws://", "http://")
-
-            loop = asyncio.get_event_loop()
-            start_pos = source.tell()
-            await loop.run_in_executor(None, self._http_upload, url, source, timeout)
-            size = source.tell() - start_pos
-            _logger.debug("HTTP upload succeeded: %d bytes to %s", size, target)
-            return {"result": True, "size": size}
-        except* Exception as eg:
-            _logger.debug("HTTP upload failed, falling back to WebSocket: %s", eg)
-            source.seek(start_pos)
-
-        # WebSocket fallback
         request_id = f"upload_{self._get_request_id()}"
         data = { "action": 'upload', "reqid": request_id, "path": target, "name": name}
         request = {"id": request_id, "data": data, "type": "upload", "source": source, "target": target, "name": name, "size": 0, "complete": False, "inflight": 0, "finished": asyncio.Event(), "errored":asyncio.Event(), "error": None}
@@ -265,11 +243,6 @@ class Files(tunnel.Tunnel):
         if request["error"] is not None:
             raise request["error"]
         return request["return"]
-
-    def _http_upload(self, url, source, timeout):
-        req = urllib.request.Request(url, data=source, method='PUT')
-        response = self._http_opener.open(req, timeout=timeout)
-        return response
 
     def _http_download(self, url, target, timeout):
         response = self._http_opener.open(url, timeout=timeout)
