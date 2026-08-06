@@ -81,7 +81,12 @@ class Tunnel(object):
         except* Exception as eg:
             self.alive = False
             self._socket_open.clear()
-            self._main_loop_error = eg
+            # Unwrap ExceptionGroup to store the first real exception
+            # so downstream code (e.g. _check_socket) raises a meaningful error
+            if eg.exceptions:
+                self._main_loop_error = eg.exceptions[0]
+            else:
+                self._main_loop_error = eg
             self.closed.set()
             self.initialized.set()
 
