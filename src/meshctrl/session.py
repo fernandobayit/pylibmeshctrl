@@ -1902,7 +1902,7 @@ class Session(object):
         tasks = []
         async with asyncio.TaskGroup() as tg:
             tasks.append(tg.create_task(asyncio.wait_for(_(), timeout=timeout)))
-            tasks.append({ "action": 'msg', "type": 'openUrl', "nodeid": nodeid, "url": url }, "device_open_url", timeout=timeout)
+            tasks.append(tg.create_task(self._send_command({ "action": 'msg', "type": 'openUrl', "nodeid": nodeid, "url": url }, "device_open_url", timeout=timeout)))
 
         
         success = tasks[0].result()
@@ -1965,7 +1965,7 @@ class Session(object):
         if isinstance(nodeids, str):
             nodeids = [nodeids]
 
-        data = self._send_command({ "action": 'toast', "nodeids": nodeids, "title": "MeshCentral", "msg": message }, "device_toast", timeout=timeout)
+        data = await self._send_command({ "action": 'toast', "nodeids": nodeids, "title": "MeshCentral", "msg": message }, "device_toast", timeout=timeout)
 
         if data.get("result", "ok").lower() != "ok":
             raise exceptions.ServerError(data["result"])
